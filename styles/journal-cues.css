@@ -1,0 +1,844 @@
+.journal-cues-app {
+  min-height: 420px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  --jc-accent: #2f6f73;
+  --jc-accent-dark: #214e51;
+  --jc-accent-strong: #c96c2c;
+  --jc-accent-soft: rgb(47 111 115 / 0.18);
+  --jc-gold-soft: rgb(201 108 44 / 0.16);
+  --jc-green: #3d7a45;
+  --jc-danger: #8f2d2d;
+  --jc-danger-bright: #c64a42;
+  --jc-surface: rgb(255 255 255 / 0.08);
+  --jc-surface-strong: rgb(255 255 255 / 0.15);
+  --jc-surface-warm: rgb(201 108 44 / 0.08);
+  --jc-line: var(--color-border-light-tertiary);
+}
+
+.journal-cues-window.journal-cues-dark {
+  color-scheme: dark;
+}
+
+.journal-cues-window.journal-cues-dark .window-content {
+  background:
+    linear-gradient(180deg, rgb(47 111 115 / 0.13), transparent 190px),
+    #14171b;
+  color: #e8edf0;
+}
+
+.journal-cues-app.is-dark-mode {
+  --jc-accent: #52a0a5;
+  --jc-accent-dark: #214e51;
+  --jc-accent-strong: #e19152;
+  --jc-accent-soft: rgb(82 160 165 / 0.20);
+  --jc-gold-soft: rgb(225 145 82 / 0.18);
+  --jc-green: #68a96e;
+  --jc-danger: #9e3e3e;
+  --jc-danger-bright: #e05b52;
+  --jc-surface: rgb(255 255 255 / 0.08);
+  --jc-surface-strong: rgb(255 255 255 / 0.13);
+  --jc-surface-warm: rgb(225 145 82 / 0.10);
+  --jc-line: rgb(255 255 255 / 0.17);
+  background: #14171b;
+  color: #e8edf0;
+}
+
+.journal-cues-app.is-dark-mode input,
+.journal-cues-app.is-dark-mode select,
+.journal-cues-app.is-dark-mode textarea {
+  border-color: rgb(255 255 255 / 0.18);
+  background: #0f1216;
+  color: #eef2f4;
+}
+
+.journal-cues-app.is-dark-mode input:focus,
+.journal-cues-app.is-dark-mode select:focus,
+.journal-cues-app.is-dark-mode textarea:focus {
+  border-color: var(--jc-accent-strong);
+  box-shadow: 0 0 0 1px rgb(225 145 82 / 0.25);
+}
+
+.journal-cues-app.is-dark-mode a {
+  color: #9eced2;
+}
+
+.journal-cues-window .window-header .header-button.journal-cues-context,
+.journal-cues-window .window-header .header-button.journal-cues-detach {
+  flex: 0 0 24px;
+  width: 24px;
+  overflow: hidden;
+  text-align: center;
+  font-size: 0;
+}
+
+.journal-cues-window .window-header .header-button.journal-cues-context i,
+.journal-cues-window .window-header .header-button.journal-cues-detach i {
+  margin-right: 0;
+  font-size: var(--font-size-12, 12px);
+}
+
+.journal-cues-app button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 30px;
+  padding: 0.28rem 0.55rem;
+  border: 1px solid var(--jc-line);
+  border: 1px solid color-mix(in srgb, var(--jc-accent) 58%, var(--jc-line));
+  border-radius: 5px;
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 0.12), rgb(0 0 0 / 0.10)),
+    var(--jc-surface);
+  cursor: pointer;
+  line-height: 1;
+  transition: background-color 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.journal-cues-app button:hover,
+.journal-cues-app button:focus {
+  border-color: var(--jc-accent-strong);
+  box-shadow: 0 0 0 1px rgb(201 108 44 / 0.22);
+}
+
+.journal-cues-app button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+  filter: grayscale(0.35);
+  box-shadow: none;
+}
+
+.journal-cues-app .jc-editor-footer,
+.journal-cues-app .jc-cue-buttons {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.journal-cues-app .jc-icon-button {
+  width: 30px;
+  min-width: 30px;
+  height: 30px;
+  padding: 0;
+}
+
+.journal-cues-app .jc-recording-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid var(--jc-accent-strong);
+  border-left: 4px solid var(--jc-accent-strong);
+  border-radius: 5px;
+  background: var(--jc-gold-soft);
+  padding: 0.45rem 0.6rem;
+  margin: 0 0 0.65rem;
+}
+
+.journal-cues-app .jc-recording-banner .fa-circle,
+.journal-cues-app .jc-cue.recording .jc-cue-main strong::before {
+  color: var(--jc-accent-strong);
+}
+
+.journal-cues-app .jc-layout {
+  display: grid;
+  grid-template-columns: minmax(230px, 300px) minmax(0, 1fr);
+  gap: 0.8rem;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.journal-cues-app.is-list-collapsed .jc-layout {
+  grid-template-columns: 42px minmax(0, 1fr);
+}
+
+.journal-cues-app .jc-list {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding: 0.55rem;
+  overflow: hidden;
+  border: 1px solid var(--jc-line);
+  border-radius: 6px;
+  background:
+    linear-gradient(180deg, var(--jc-surface), transparent),
+    rgb(0 0 0 / 0.05);
+}
+
+.journal-cues-app .jc-list-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem;
+  flex: 0 0 auto;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.45rem;
+  border-bottom: 1px solid var(--jc-line);
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 0.04), transparent),
+    color-mix(in srgb, var(--jc-accent-dark) 11%, transparent);
+}
+
+.journal-cues-app .jc-list-title {
+  display: grid;
+  min-width: 0;
+  gap: 0.15rem;
+}
+
+.journal-cues-app .jc-list-title strong {
+  color: var(--jc-accent-strong);
+  font-size: 13px;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.journal-cues-app .jc-list-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex: 0 0 auto;
+}
+
+.journal-cues-app .jc-new-cue-button {
+  min-width: 0;
+  max-width: 148px;
+}
+
+.journal-cues-app .jc-new-cue-button span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.journal-cues-app .jc-list-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 0.15rem;
+}
+
+.journal-cues-app.is-list-collapsed .jc-list {
+  padding: 0.35rem 0.25rem;
+  overflow: visible;
+}
+
+.journal-cues-app.is-list-collapsed .jc-list-head {
+  display: grid;
+  justify-content: center;
+  justify-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  border-bottom: 0;
+  background: transparent;
+}
+
+.journal-cues-app.is-list-collapsed .jc-list-title,
+.journal-cues-app.is-list-collapsed .jc-list-body {
+  display: none;
+}
+
+.journal-cues-app.is-list-collapsed .jc-list-actions {
+  display: grid;
+  justify-items: center;
+  gap: 0.35rem;
+}
+
+.journal-cues-app.is-list-collapsed .jc-new-cue-button {
+  width: 30px;
+  min-width: 30px;
+  height: 30px;
+  padding: 0;
+}
+
+.journal-cues-app.is-list-collapsed .jc-new-cue-button span {
+  display: none;
+}
+
+.journal-cues-app .jc-list-title span,
+.journal-cues-app .jc-cue-count,
+.journal-cues-app .jc-cue-state,
+.journal-cues-app .hint,
+.journal-cues-app .jc-empty,
+.journal-cues-app .jc-editor-head p {
+  opacity: 0.74;
+}
+
+.journal-cues-app .jc-cue {
+  display: grid;
+  gap: 0.42rem;
+  padding: 0.5rem;
+  border: 1px solid transparent;
+  border-left: 4px solid transparent;
+  border-radius: 6px;
+  background: rgb(0 0 0 / 0.05);
+}
+
+.journal-cues-app .jc-cue + .jc-cue {
+  margin-top: 0.38rem;
+}
+
+.journal-cues-app .jc-cue:hover {
+  background: var(--jc-surface);
+}
+
+.journal-cues-app .jc-cue.selected {
+  background:
+    linear-gradient(90deg, var(--jc-accent-soft), transparent 82%),
+    var(--jc-surface-strong);
+  border-color: var(--color-border-highlight);
+  border-left-color: var(--jc-accent);
+}
+
+.journal-cues-app .jc-cue.recording {
+  border-left-color: var(--jc-accent-strong);
+}
+
+.journal-cues-app .jc-cue.playing {
+  border-color: var(--jc-green);
+  border-left-color: var(--jc-green);
+  background: rgb(61 122 69 / 0.14);
+}
+
+.journal-cues-app .jc-cue.paused {
+  border-left-color: var(--color-level-warning, #c7862c);
+}
+
+.journal-cues-app .jc-cue-main {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  gap: 0.18rem;
+  text-align: left;
+  justify-content: stretch;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+}
+
+.journal-cues-app .jc-cue-main:hover,
+.journal-cues-app .jc-cue-main:focus {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.journal-cues-app .jc-cue-main strong,
+.journal-cues-app .jc-cue-main span {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.journal-cues-app .jc-cue-main strong {
+  color: inherit;
+  font-size: 14px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.journal-cues-app .jc-cue-state {
+  color: var(--jc-accent-strong);
+  font-size: 12px;
+}
+
+.journal-cues-app .jc-cue-buttons {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(28px, 1fr));
+  gap: 0.28rem;
+}
+
+.journal-cues-app .jc-cue-buttons button,
+.journal-cues-app .jc-action-buttons button {
+  width: 100%;
+  height: 28px;
+  min-height: 28px;
+  padding: 0;
+  line-height: 1;
+}
+
+.journal-cues-app .jc-cue-buttons button i,
+.journal-cues-app .jc-action-buttons button i,
+.journal-cues-app .jc-icon-button i {
+  margin: 0;
+}
+
+.journal-cues-app .jc-record-icon-button .fa-circle {
+  color: var(--jc-danger-bright);
+}
+
+.journal-cues-app .jc-record-icon-button:not(:disabled) {
+  border-color: var(--jc-danger-bright);
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 0.10), rgb(0 0 0 / 0.08)),
+    rgb(198 74 66 / 0.12);
+}
+
+.journal-cues-app button.jc-stop-button {
+  background: var(--jc-danger);
+  border: 1px solid #d16a6a;
+  color: #fff;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.12);
+}
+
+.journal-cues-app button.jc-stop-button:hover,
+.journal-cues-app button.jc-stop-button:focus {
+  background: #a63a3a;
+  color: #fff;
+}
+
+.journal-cues-app button.jc-stop-button i {
+  color: #fff;
+}
+
+.journal-cues-app .jc-editor {
+  min-width: 0;
+}
+
+.journal-cues-app .jc-editor-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: flex-start;
+  margin-bottom: 0.65rem;
+  padding: 0.7rem 0.75rem;
+  border: 1px solid var(--jc-line);
+  border-left: 4px solid var(--jc-accent);
+  border-radius: 6px;
+  background:
+    linear-gradient(90deg, var(--jc-accent-soft), transparent 70%),
+    rgb(0 0 0 / 0.07);
+}
+
+.journal-cues-app .jc-editor-head h2 {
+  margin: 0;
+  font-size: 19px;
+  line-height: 1.25;
+}
+
+.journal-cues-app .jc-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.journal-cues-app .jc-title-row h2 {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.journal-cues-app .jc-editor-head p {
+  margin: 0.18rem 0 0;
+}
+
+.journal-cues-app .jc-settings-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  margin-bottom: 0.65rem;
+  padding: 0.52rem 0.65rem;
+  border: 1px solid var(--jc-line);
+  border-radius: 6px;
+  background:
+    linear-gradient(90deg, rgb(201 108 44 / 0.12), transparent 72%),
+    rgb(0 0 0 / 0.045);
+}
+
+.journal-cues-app .jc-settings-title {
+  display: grid;
+  min-width: 0;
+  gap: 0.12rem;
+}
+
+.journal-cues-app .jc-settings-title strong {
+  color: var(--jc-accent-strong);
+  font-size: 12px;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.journal-cues-app .jc-settings-title span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.74;
+}
+
+.journal-cues-app .jc-cue-settings {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+  margin-bottom: 0.75rem;
+  padding: 0.65rem;
+  border: 1px solid var(--jc-line);
+  border-radius: 6px;
+  background:
+    linear-gradient(90deg, rgb(47 111 115 / 0.10), transparent 75%),
+    rgb(0 0 0 / 0.05);
+}
+
+.journal-cues-app .form-group {
+  min-width: 0;
+}
+
+.journal-cues-app .form-group.stacked {
+  display: block;
+}
+
+.journal-cues-app .jc-setting-field {
+  display: grid;
+  align-content: start;
+  gap: 0.32rem;
+  min-height: 106px;
+  padding: 0.5rem;
+  border: 1px solid rgb(255 255 255 / 0.10);
+  border-radius: 5px;
+  background: rgb(0 0 0 / 0.07);
+}
+
+.journal-cues-app .jc-field-head {
+  display: flex;
+  align-items: center;
+  min-height: 18px;
+}
+
+.journal-cues-app .jc-field-head label,
+.journal-cues-app .jc-loop-limit span {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.journal-cues-app .jc-input-line input,
+.journal-cues-app .jc-input-line select {
+  width: 100%;
+  min-width: 0;
+  height: 32px;
+}
+
+.journal-cues-app .jc-setting-field .hint {
+  margin: 0;
+  line-height: 1.25;
+}
+
+.journal-cues-app .jc-loop-group {
+  grid-column: 1 / -1;
+  min-height: 0;
+}
+
+.journal-cues-app .jc-loop-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 128px;
+  gap: 0.6rem;
+  align-items: stretch;
+}
+
+.journal-cues-app .jc-loop-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  min-height: 38px;
+  margin: 0;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--jc-line);
+  border-radius: 5px;
+  background: var(--jc-surface-warm);
+}
+
+.journal-cues-app .jc-loop-toggle span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.journal-cues-app .jc-loop-toggle input {
+  flex: 0 0 auto;
+}
+
+.journal-cues-app .jc-loop-limit {
+  display: grid;
+  gap: 0.22rem;
+  margin: 0;
+}
+
+.journal-cues-app .jc-loop-limit input {
+  width: 100%;
+}
+
+.journal-cues-app .jc-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.journal-cues-app .jc-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  justify-content: end;
+}
+
+.journal-cues-app .jc-badges span,
+.journal-cues-app .jc-action-status {
+  border: 1px solid var(--color-border-highlight);
+  border-radius: 4px;
+  padding: 0.1rem 0.35rem;
+  font-size: 11px;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.journal-cues-app .jc-action-list {
+  display: grid;
+  gap: 0.38rem;
+  margin: 0.35rem 0 0.5rem;
+  padding: 0.2rem 0.15rem 0.2rem 0.35rem;
+  max-height: 270px;
+  overflow: auto;
+  list-style: none;
+}
+
+.journal-cues-app .jc-action-list li {
+  position: relative;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) 104px 90px;
+  gap: 0.48rem;
+  align-items: center;
+  padding: 0.42rem;
+  border: 1px solid var(--jc-line);
+  border-left: 4px solid transparent;
+  border-radius: 6px;
+  background:
+    linear-gradient(90deg, rgb(255 255 255 / 0.05), transparent 45%),
+    rgb(0 0 0 / 0.08);
+  cursor: grab;
+}
+
+.journal-cues-app .jc-action-list li:active {
+  cursor: grabbing;
+}
+
+.journal-cues-app .jc-action-list li:hover {
+  border-left-color: var(--jc-accent-strong);
+  background:
+    linear-gradient(90deg, var(--jc-gold-soft), transparent 62%),
+    rgb(0 0 0 / 0.08);
+}
+
+.journal-cues-app .jc-action-row.dragging {
+  opacity: 0.48;
+}
+
+.journal-cues-app .jc-action-row.drag-over-before {
+  box-shadow: inset 0 3px 0 var(--jc-accent-strong);
+}
+
+.journal-cues-app .jc-action-row.drag-over-after {
+  box-shadow: inset 0 -3px 0 var(--jc-accent-strong);
+}
+
+.journal-cues-app .jc-action-row.running {
+  border-color: var(--color-border-highlight);
+  border-left-color: var(--jc-accent-strong);
+  background: rgb(255 255 255 / 0.14);
+}
+
+.journal-cues-app .jc-action-row.stopping {
+  border-left-color: var(--color-level-warning, #c7862c);
+}
+
+.journal-cues-app .jc-action-row.done {
+  opacity: 0.68;
+}
+
+.journal-cues-app .jc-action-row.next {
+  border-style: dashed;
+}
+
+.journal-cues-app .jc-action-status {
+  justify-self: start;
+  min-width: 34px;
+  border-color: var(--jc-line);
+  text-align: center;
+  opacity: 0.85;
+}
+
+.journal-cues-app .jc-action-row.running .jc-action-status,
+.journal-cues-app .jc-action-row.stopping .jc-action-status {
+  border-color: var(--color-border-highlight);
+  opacity: 1;
+}
+
+.journal-cues-app .jc-action-summary {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.journal-cues-app .jc-document-link {
+  white-space: nowrap;
+}
+
+.journal-cues-app .jc-delay-field {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.25rem;
+  align-items: center;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.journal-cues-app .jc-delay-field input {
+  min-width: 0;
+}
+
+.journal-cues-app .jc-action-row button,
+.journal-cues-app .jc-action-row input,
+.journal-cues-app .jc-action-row a {
+  cursor: pointer;
+}
+
+.journal-cues-app .jc-action-buttons {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(26px, 1fr));
+  gap: 0.25rem;
+}
+
+.journal-cues-app .jc-json-details {
+  margin: 0.65rem 0 0.9rem;
+  padding-bottom: 0.45rem;
+}
+
+.journal-cues-app .jc-json-details summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.journal-cues-app textarea[name="actionsJson"] {
+  width: 100%;
+  margin-top: 0.35rem;
+  min-height: 220px;
+  resize: vertical;
+  font-family: var(--font-monospace);
+  font-size: 12px;
+}
+
+.journal-cues-app .jc-editor-footer {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+  gap: 0.45rem;
+  padding-top: 0.55rem;
+  border-top: 1px solid var(--jc-line);
+}
+
+.journal-cues-app .jc-editor-footer button {
+  width: 100%;
+  min-height: 32px;
+}
+
+.journal-cues-app .jc-no-selection {
+  display: grid;
+  min-height: 240px;
+  place-items: center;
+  opacity: 0.75;
+}
+
+.journal-cue-link {
+  cursor: pointer;
+}
+
+.journal-cue-link i {
+  margin-right: 0.25em;
+}
+
+.jc-help p {
+  margin: 0 0 0.55rem;
+}
+
+.jc-header-menu {
+  position: fixed;
+  z-index: 100000;
+  display: grid;
+  min-width: 210px;
+  gap: 0.2rem;
+  padding: 0.35rem;
+  border: 1px solid var(--color-border-light-tertiary);
+  border-radius: 6px;
+  background: var(--color-bg, #1f1f1f);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.35);
+}
+
+.jc-header-menu.is-dark-mode {
+  border-color: rgb(255 255 255 / 0.17);
+  background: #15191d;
+  color: #e8edf0;
+  box-shadow: 0 10px 28px rgb(0 0 0 / 0.55);
+}
+
+.jc-header-menu button {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.45rem;
+  width: 100%;
+  min-height: 30px;
+  padding: 0.32rem 0.45rem;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.jc-header-menu button:hover,
+.jc-header-menu button:focus {
+  border-color: var(--color-border-highlight);
+  background: rgb(255 255 255 / 0.10);
+}
+
+@media (max-width: 760px) {
+  .journal-cues-app .jc-layout,
+  .journal-cues-app .jc-cue-settings,
+  .journal-cues-app .jc-loop-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .journal-cues-app.is-list-collapsed .jc-layout {
+    grid-template-columns: 42px minmax(0, 1fr);
+  }
+
+  .journal-cues-app .jc-list {
+    max-height: 240px;
+  }
+
+  .journal-cues-app.is-list-collapsed .jc-list {
+    max-height: none;
+  }
+
+  .journal-cues-app .jc-action-list li {
+    grid-template-columns: 38px minmax(0, 1fr);
+  }
+
+  .journal-cues-app .jc-delay-field,
+  .journal-cues-app .jc-action-buttons {
+    grid-column: 2;
+  }
+
+  .journal-cues-app .jc-editor-footer {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  }
+}

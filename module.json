@@ -1,0 +1,28 @@
+{
+  "id": "journal-cues",
+  "title": "Journal Cues",
+  "description": "Clickable journal cues for recording, replaying, and resetting scene actions.",
+  "version": "0.2.2",
+  "compatibility": {
+    "minimum": "13",
+    "verified": "14"
+  },
+  "authors": [
+    {
+      "name": "local"
+    }
+  ],
+  "esmodules": [
+    "scripts/journal-cues.js"
+  ],
+  "styles": [
+    "styles/journal-cues.css"
+  ],
+  "languages": [
+    {
+      "lang": "en",
+      "name": "English",
+      "path": "lang/en.json"
+    }
+  ]
+}

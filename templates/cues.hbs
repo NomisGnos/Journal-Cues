@@ -1,0 +1,237 @@
+<section class="journal-cues-app {{#if recording.active}}is-recording{{/if}} {{#if sidebarCollapsed}}is-list-collapsed{{/if}} {{#if darkMode}}is-dark-mode{{/if}}">
+  {{#if recording.active}}
+  <p class="jc-recording-banner">
+    <i class="fas fa-circle"></i>
+    {{labels.status.recording}}
+    <strong>{{recording.name}}</strong>
+    <span>{{recording.actionCount}} {{labels.labels.actionsCaptured}}</span>
+  </p>
+  {{/if}}
+
+  <div class="jc-layout">
+    <aside class="jc-list" aria-label="{{labels.labels.cueList}}">
+      <div class="jc-list-head">
+        <div class="jc-list-title">
+          <strong>{{labels.labels.cueList}}</strong>
+          <span>{{cueCount}} {{labels.labels.cues}}</span>
+        </div>
+        <div class="jc-list-actions">
+          <button type="button" class="jc-new-cue-button" data-action="record-new" title="{{labels.controls.newCue}}" {{#if recording.active}}disabled{{/if}}>
+            <i class="fas fa-plus-circle"></i>
+            <span>{{labels.controls.newCue}}</span>
+          </button>
+          <button type="button" class="jc-icon-button jc-sidebar-toggle" data-action="toggle-list" title="{{#if sidebarCollapsed}}{{labels.controls.expandList}}{{else}}{{labels.controls.collapseList}}{{/if}}">
+            <i class="fas {{#if sidebarCollapsed}}fa-chevron-right{{else}}fa-chevron-left{{/if}}"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="jc-list-body">
+      {{#if cues.length}}
+        {{#each cues}}
+        <article class="jc-cue {{#if selected}}selected{{/if}} {{#if recording}}recording{{/if}} {{#if playing}}playing{{/if}} {{#if paused}}paused{{/if}}" data-cue-id="{{id}}">
+          <button type="button" class="jc-cue-main" data-action="select" data-cue-id="{{id}}">
+            <strong>{{name}}</strong>
+            <span class="jc-cue-count">{{actionCount}} {{../labels.labels.actions}}</span>
+            {{#if recording}}<span class="jc-cue-state">{{../labels.status.recordingInProgress}}</span>{{/if}}
+            {{#if playbackLabel}}<span class="jc-cue-state">{{playbackLabel}}</span>{{/if}}
+          </button>
+          <div class="jc-cue-buttons">
+            {{#if playing}}
+            <button type="button" class="jc-stop-button" data-action="stop-playback" data-cue-id="{{id}}" title="{{../labels.controls.stop}}">
+              <i class="fas fa-stop"></i>
+            </button>
+            {{else}}
+            <button type="button" data-action="play" data-cue-id="{{id}}" title="{{../labels.controls.play}}" {{#if playbackDisabled}}disabled{{/if}}>
+              <i class="fas fa-play"></i>
+            </button>
+            {{/if}}
+            <button type="button" data-action="restore-recorded" data-cue-id="{{id}}" title="{{../labels.controls.restore}}" {{#if playbackDisabled}}disabled{{/if}}>
+              <i class="fas fa-history"></i>
+            </button>
+            {{#if recording}}
+            <button type="button" class="jc-stop-button jc-record-icon-button" data-action="stop-recording" data-cue-id="{{id}}" title="{{../labels.controls.stopRecording}}">
+              <i class="fas fa-stop"></i>
+            </button>
+            {{else}}
+            <button type="button" class="jc-record-icon-button" data-action="record-append" data-cue-id="{{id}}" title="{{../labels.controls.record}}" {{#unless canRecord}}disabled{{/unless}}>
+              <i class="fas fa-circle"></i>
+            </button>
+            {{/if}}
+            <button type="button" data-action="copy-link" data-cue-id="{{id}}" title="{{../labels.controls.copyLink}}">
+              <i class="fas fa-link"></i>
+            </button>
+            <button type="button" data-action="delete" data-cue-id="{{id}}" title="{{../labels.controls.delete}}" {{#if recording}}disabled{{/if}}>
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+        </article>
+        {{/each}}
+      {{else}}
+        <p class="jc-empty">{{labels.empty.noCues}}</p>
+      {{/if}}
+      </div>
+    </aside>
+
+    <main class="jc-editor">
+      {{#if selected}}
+      <form class="jc-form" data-cue-id="{{selected.id}}">
+        <div class="jc-editor-head">
+          <div class="jc-title-block">
+            <div class="jc-title-row">
+              <h2>{{selected.name}}</h2>
+              <button type="button" class="jc-icon-button" data-action="rename" data-cue-id="{{selected.id}}" title="{{labels.controls.rename}}">
+                <i class="fas fa-pencil-alt"></i>
+              </button>
+            </div>
+            <p>{{selected.actionsList.length}} {{labels.labels.actions}}</p>
+          </div>
+        </div>
+
+        <div class="jc-settings-bar">
+          <div class="jc-settings-title">
+            <strong>{{labels.fields.cueSettings}}</strong>
+            <span>{{labels.fields.defaultDelayShort}} / {{labels.fields.playbackOrigin}} / {{labels.fields.loop}}</span>
+          </div>
+          <button type="button" class="jc-icon-button" data-action="toggle-settings" title="{{#if settingsExpanded}}{{labels.controls.collapseSettings}}{{else}}{{labels.controls.expandSettings}}{{/if}}">
+            <i class="fas {{#if settingsExpanded}}fa-chevron-up{{else}}fa-sliders-h{{/if}}"></i>
+          </button>
+        </div>
+
+        {{#if settingsExpanded}}
+        <div class="jc-cue-settings">
+          <div class="form-group jc-setting-field">
+            <div class="jc-field-head">
+              <label>{{labels.fields.defaultDelayShort}}</label>
+            </div>
+            <div class="jc-input-line">
+              <input type="number" name="defaultDelayMs" min="0" step="50" value="{{selected.defaultDelayMs}}">
+            </div>
+            <p class="hint">{{labels.hints.defaultDelay}}</p>
+          </div>
+
+          <div class="form-group jc-setting-field">
+            <div class="jc-field-head">
+              <label>{{labels.fields.playbackOrigin}}</label>
+            </div>
+            <div class="jc-input-line">
+              <select name="originMode">
+                <option value="recorded" {{#if selected.originRecorded}}selected{{/if}}>{{labels.options.recordedStart}}</option>
+                <option value="current" {{#if selected.originCurrent}}selected{{/if}}>{{labels.options.currentPlacement}}</option>
+              </select>
+            </div>
+            <p class="hint">{{labels.hints.playbackOrigin}}</p>
+          </div>
+
+          <div class="form-group jc-setting-field jc-loop-group">
+            <div class="jc-field-head">
+              <label>{{labels.fields.loop}}</label>
+            </div>
+            <div class="jc-loop-controls">
+              <label class="jc-loop-toggle">
+                <input type="checkbox" name="loopEnabled" {{#if selected.loopEnabled}}checked{{/if}}>
+                <span>{{labels.options.enableLoop}}</span>
+              </label>
+              <label class="jc-loop-limit">
+                <span>{{labels.fields.loopLimit}}</span>
+                <input type="number" name="loopLimit" min="0" step="1" value="{{selected.loopLimit}}">
+              </label>
+            </div>
+            <p class="hint">{{labels.hints.loopLimit}}</p>
+          </div>
+        </div>
+        {{/if}}
+
+        <div class="form-group stacked">
+          <div class="jc-section-heading">
+            <label>{{labels.fields.actionList}}</label>
+            <div class="jc-badges">
+              {{#if selected.playing}}<span>{{labels.status.playing}}</span>{{/if}}
+              {{#if selected.paused}}<span>{{labels.status.paused}}</span>{{/if}}
+              {{#if selected.recording}}<span>{{labels.status.recording}}</span>{{/if}}
+            </div>
+          </div>
+          {{#if selected.actionsList.length}}
+          <ol class="jc-action-list">
+            {{#each selected.actionsList}}
+            <li class="jc-action-row {{statusClass}}" data-cue-id="{{../selected.id}}" data-index="{{index}}" draggable="true">
+              <span class="jc-action-status">{{statusLabel}}</span>
+              <span class="jc-action-summary">
+                {{#if link}}
+                {{beforeLink}}
+                <a class="content-link jc-document-link" data-document-name="{{link.documentName}}" data-target="{{link.target}}" data-scene-id="{{link.sceneId}}" title="{{../labels.tooltip.showTarget}}">
+                  <i class="{{link.icon}}"></i>
+                  {{link.label}}
+                </a>
+                {{afterLink}}
+                {{else}}
+                {{summary}}
+                {{/if}}
+              </span>
+              <label class="jc-delay-field">
+                <span>{{../labels.fields.delay}}</span>
+                <input type="number" min="0" step="50" value="{{waitAfter}}" data-action-delay data-cue-id="{{../selected.id}}" data-index="{{index}}">
+              </label>
+              <div class="jc-action-buttons">
+                <button type="button" data-action="action-up" data-cue-id="{{../selected.id}}" data-index="{{index}}" title="{{../labels.controls.moveUp}}"><i class="fas fa-arrow-up"></i></button>
+                <button type="button" data-action="action-down" data-cue-id="{{../selected.id}}" data-index="{{index}}" title="{{../labels.controls.moveDown}}"><i class="fas fa-arrow-down"></i></button>
+                <button type="button" data-action="action-remove" data-cue-id="{{../selected.id}}" data-index="{{index}}" title="{{../labels.controls.remove}}"><i class="fas fa-times"></i></button>
+              </div>
+            </li>
+            {{/each}}
+          </ol>
+          {{else}}
+          <p class="jc-empty">{{labels.empty.noActions}}</p>
+          {{/if}}
+        </div>
+
+        <details class="jc-json-details">
+          <summary>{{labels.fields.actionsJson}}</summary>
+          <textarea name="actionsJson" spellcheck="false">{{selected.actionsJson}}</textarea>
+        </details>
+
+        <footer class="jc-editor-footer">
+          <button type="button" data-action="save" data-cue-id="{{selected.id}}">
+            <i class="fas fa-save"></i>
+            {{labels.controls.save}}
+          </button>
+          {{#if selected.recording}}
+          <button type="button" class="jc-stop-button" data-action="stop-recording" data-cue-id="{{selected.id}}">
+            <i class="fas fa-stop"></i>
+            {{labels.controls.stopRecording}}
+          </button>
+          {{else}}
+          <button type="button" class="jc-record-icon-button" data-action="record-append" data-cue-id="{{selected.id}}" {{#unless selected.canRecord}}disabled{{/unless}}>
+            <i class="fas fa-circle"></i>
+            {{labels.controls.startRecording}}
+          </button>
+          {{/if}}
+          {{#if selected.playing}}
+          <button type="button" class="jc-stop-button" data-action="stop-playback" data-cue-id="{{selected.id}}">
+            <i class="fas fa-stop"></i>
+            {{labels.controls.stop}}
+          </button>
+          {{else}}
+          <button type="button" data-action="play" data-cue-id="{{selected.id}}" {{#if selected.playbackDisabled}}disabled{{/if}}>
+            <i class="fas fa-play"></i>
+            {{labels.controls.play}}
+          </button>
+          {{/if}}
+          <button type="button" data-action="restore-recorded" data-cue-id="{{selected.id}}" {{#if selected.playbackDisabled}}disabled{{/if}}>
+            <i class="fas fa-history"></i>
+            {{labels.controls.restore}}
+          </button>
+          <button type="button" data-action="copy-link" data-cue-id="{{selected.id}}">
+            <i class="fas fa-link"></i>
+            {{labels.controls.copyLink}}
+          </button>
+        </footer>
+      </form>
+      {{else}}
+      <div class="jc-no-selection">
+        <p>{{labels.empty.noSelection}}</p>
+      </div>
+      {{/if}}
+    </main>
+  </div>
+</section>
