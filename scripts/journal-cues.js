@@ -16,6 +16,7 @@ const PLAYLIST_SOUND_FIELDS = ["playing", "repeat", "volume", "pausedTime", "pat
 const TOKEN_RESTORE_FIELDS = ["x", "y", "elevation", "rotation", "hidden"];
 
 let appInstance = null;
+let refreshAppQueued = false;
 
 function clone(value) {
   return foundry.utils.deepClone(value);
@@ -474,7 +475,12 @@ async function deleteCue(cueId, sc = scene()) {
 }
 
 function refreshApp() {
-  if (appInstance?.rendered) appInstance.render(false);
+  if (!appInstance?.rendered || refreshAppQueued) return;
+  refreshAppQueued = true;
+  requestAnimationFrame(() => {
+    refreshAppQueued = false;
+    if (appInstance?.rendered) appInstance.render(false);
+  });
 }
 
 function embeddedSceneFor(actionOrRef) {
@@ -1582,7 +1588,8 @@ async function focusDocumentTarget({ documentName, target, sceneId }) {
   }
 
   if (doc.documentName === "Actor") {
-    doc.sheet?.render(true);
+    if (doc.sheet?.rendered) doc.sheet.bringToTop?.();
+    else doc.sheet?.render(true);
     return;
   }
 
