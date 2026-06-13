@@ -1,27 +1,48 @@
 # Journal Cues
 
-Journal Cues stores replayable scene cues on the active scene under `flags.journal-cues.cues`.
+Journal Cues records small scene routines and lets you play them from a journal link or from the module window.
 
-Use journal links like:
+It stores cues on the active scene in:
 
 ```text
-@Cue[cue-id]{Visible sentence in the journal}
+flags.journal-cues.cues
 ```
 
-Open the cue list from the token controls route icon, or from the console/API:
+Use a link like this in a journal entry:
+
+```text
+@Cue[cue-id]{Visible text}
+```
+
+Open the cue window from the token controls route icon, or from the console:
 
 ```js
 game.modules.get("journal-cues").api.open()
 ```
 
+## What It Does
+
+- Records Foundry actions while the GM is recording.
+- Replays those actions later in order.
+- Saves a recorded-start snapshot so a cue can reset before it plays.
+- Lets cues be started from journal text.
+- Lets multiple different cues run at the same time.
+- Runs consecutive token movement actions together when there is no explicit delay.
+
+This is meant for table beats like doors opening, tokens moving, lights changing, a sound cue playing, an image popping up, or a short scene reset.
+
 ## Recording
 
-Use **Create New Cue** to create an empty cue. Select a cue and use **Start Recording** in the editor footer to append actions. While recording, Play and Restore are disabled until the GM clicks Stop Recording or Cancel.
+1. Click `Create New Cue`.
+2. Select the cue.
+3. Click `Start Recording`.
+4. Do the scene actions in Foundry.
+5. Click `Stop Recording`.
 
-Recording captures common Foundry document changes:
+Captured action types include:
 
 - Tokens
-- Walls and door states
+- Walls and doors
 - Tiles
 - Ambient lights
 - Ambient sounds
@@ -31,36 +52,53 @@ Recording captures common Foundry document changes:
 - Macros
 - Roll tables
 - Canvas pings
-- Chat messages, including in-character token chat bubbles
-- D&D5e activity uses through `dnd5e.preUseActivity`
+- Chat messages and token chat bubbles
+- D&D5e activity use
+- Ginzzzu portraits when available
 
-Each cue keeps a recorded-start snapshot. Play defaults to restoring the recorded start before replaying.
+## Playback
 
-Recorded token movement uses the recorded destination by default, so playback does not invent a new route around walls. Set `autoPath: true` in Actions JSON only when you intentionally want Journal Cues to calculate a path. Recorded D&D5e activity and macro uses also store selected tokens and token targets from the moment of use.
+By default, playback restores the recorded starting state first. Change the cue setting to `Current placement` if you want token movement to happen relative to where tokens are now.
 
-Each cue has a default delay between actions, and each action can override that delay from the action list. The world-level default is available in Foundry's module settings and defaults to 100ms.
+Each cue has a default delay. Individual actions can override it from the action list or in the JSON.
 
-Enable **Loop** on a cue to replay it repeatedly. A Loop Limit of `0` repeats until stopped.
+Looping is available per cue. A loop limit of `0` means repeat until stopped.
 
-During playback the cue's Play button becomes Stop. Stop pauses the cue between actions or during module-controlled waits, and the next Play resumes from the next queued action. The action list highlights the currently running action while the Journal Cues window is open. Hovering an action previews supported canvas targets such as movement, camera, pings, and linked documents. The raw Actions JSON is collapsed by default because it is mainly for debugging and manual editing.
+Different cues can run at the same time. The same cue will not start twice at once. Stop only stops that cue.
 
-## Useful Action Examples
+## Token Movement
 
-Move the selected token to a location, using pathfinding and doors:
+Recorded token movement uses the recorded destination by default. It does not calculate a new route unless you set:
+
+```json
+{
+  "autoPath": true
+}
+```
+
+Consecutive `moveToken` actions run together when:
+
+- the action has no `waitBefore`
+- the action has no `waitAfter`
+- the action does not set `"parallel": false`
+- the actions do not target the same token
+
+Use this when you want several tokens to move at once. Add `"parallel": false` or an explicit delay when you need one movement to finish before the next one starts.
+
+## Useful JSON Examples
+
+Move the selected token:
 
 ```json
 {
   "type": "moveToken",
   "token": "selected",
   "to": { "x": 2400, "y": 1800 },
-  "autoPath": true,
-  "autoDoors": true,
-  "closeDoors": true,
   "duration": 500
 }
 ```
 
-Move through explicit waypoints:
+Move through waypoints:
 
 ```json
 {
@@ -71,13 +109,12 @@ Move through explicit waypoints:
     { "x": 2200, "y": 1200 },
     { "x": 2400, "y": 1800 }
   ],
-  "autoPath": true,
   "autoDoors": true,
   "closeDoors": true
 }
 ```
 
-Open every tagged door:
+Open a tagged door:
 
 ```json
 {
@@ -87,48 +124,14 @@ Open every tagged door:
 }
 ```
 
-Hide tagged tiles:
+Play a playlist sound:
 
 ```json
 {
-  "type": "visibility",
-  "documentName": "Tile",
-  "target": "tag:hidden-room",
-  "hidden": true
-}
-```
-
-Pan and zoom the canvas for everyone:
-
-```json
-{
-  "type": "camera",
-  "to": { "x": 2400, "y": 1800 },
-  "scale": 1.25,
-  "duration": 700,
-  "scope": "all"
-}
-```
-
-Ping the canvas:
-
-```json
-{
-  "type": "ping",
-  "x": 2400,
-  "y": 1800,
-  "style": "pulse"
-}
-```
-
-Show an image popout:
-
-```json
-{
-  "type": "image",
-  "src": "worlds/my-world/assets/portrait.webp",
-  "title": "Arik",
-  "scope": "all"
+  "type": "playlist",
+  "playlistUuid": "Playlist.abc123",
+  "playlistSoundId": "def456",
+  "command": "play"
 }
 ```
 
@@ -143,23 +146,37 @@ Play a one-shot audio file:
 }
 ```
 
-Use a D&D5e activity:
+## Known Limits
 
-```json
-{
-  "type": "useDnd5eActivity",
-  "activityUuid": "Actor.abc.Item.def.Activity.ghi"
-}
+- Playback is GM-authoritative. A GM client needs to be active for normal use.
+- Concurrent cues can conflict if they change the same token, door, light, sound, or actor at the same time. Last update wins.
+- Stop is checked between actions and during module waits. Foundry-controlled animations may finish their current step before stopping.
+- Advanced JSON is powerful, but it is not validated beyond what playback code can resolve.
+
+## Support
+
+Please visit my Patreon and drop me a goodberry:
+
+```text
+https://www.patreon.com/cw/nomisDM
 ```
 
-Use a Ginzzzu portrait when that module is active, or fall back to an image:
+## Patch Notes
 
-```json
-{
-  "type": "portrait",
-  "actor": "Actor.BvCAttT8LgKPCvtO",
-  "shown": true,
-  "image": "worlds/my-world/assets/arik.webp",
-  "scope": "all"
-}
-```
+### 2026-06-12
+
+- Fixed playlist sound recording so a click on one sound inside a playlist records that exact sound instead of the first changed embedded sound Foundry reports.
+- Playlist actions now store `playlistUuid`, `playlistSoundId`, and `playlistSoundUuid` when available.
+- Playlist playback now resolves the sound through its parent playlist first, then falls back to UUID/id lookup.
+- Added concurrent playback sessions. Multiple different cues can run at the same time.
+- Prevented duplicate playback of the same cue while it is already running.
+- Stop now targets the requested cue instead of one global playback state.
+- Consecutive `moveToken` actions run in parallel when there are no explicit waits and `parallel` is not set to `false`.
+- Multi-token movement now moves the resolved tokens in parallel.
+- Recording suppression is reference-counted so overlapping playback sessions do not accidentally record their own updates.
+
+### Current Storage And API
+
+- Scene flag storage: `flags.journal-cues.cues`
+- Public API: `game.modules.get("journal-cues").api`
+- Useful API methods: `open`, `play`, `stop`, `restoreRecordedStart`, `startRecording`, `stopRecording`, `cancelRecording`, `getCues`, `upsertCue`, `deleteCue`

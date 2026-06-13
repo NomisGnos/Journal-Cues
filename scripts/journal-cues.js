@@ -657,13 +657,13 @@ async function recordedStartSnapshot(cue) {
 
 async function applySnapshot(snapshot, options = {}) {
   if (!snapshot?.entries?.length) return;
-  Recorder.ignore = true;
+  const releaseSuppression = beginRecordingSuppression();
   try {
     for (const entry of snapshot.entries) {
       await applySnapshotEntry(entry, options);
     }
   } finally {
-    Recorder.ignore = false;
+    releaseSuppression();
   }
 }
 
@@ -779,10 +779,13 @@ function playlistSoundUpdateAction(base, soundDoc, updateData = {}) {
   const update = pickExistingFields(stripNoise(updateData), PLAYLIST_SOUND_FIELDS);
   if (!Object.keys(flatten(update)).length) return null;
   const playing = getProperty(update, "playing");
+  const playlist = soundDoc?.parent?.documentName === "Playlist" ? soundDoc.parent : null;
   return {
     ...base,
     type: "playlist",
-    playlistSoundUuid: soundDoc?.uuid ?? base.target,
+    playlistUuid: playlist?.uuid ?? base.playlistUuid,
+    playlistSoundId: soundDoc?.id ?? base.playlistSoundId,
+    playlistSoundUuid: soundDoc?.uuid ?? base.playlistSoundUuid ?? base.target,
     command: playing === false ? "stop" : "play",
     loop: getProperty(update, "repeat"),
     volume: getProperty(update, "volume"),
@@ -791,22 +794,46 @@ function playlistSoundUpdateAction(base, soundDoc, updateData = {}) {
   };
 }
 
+function playlistSoundUpdateEntries(rawSounds) {
+  if (Array.isArray(rawSounds)) {
+    return rawSounds.map((entry) => ({
+      id: entry?._id ?? entry?.id,
+      update: entry
+    }));
+  }
+  if (!rawSounds || typeof rawSounds !== "object") return [];
+  return Object.entries(rawSounds).map(([key, entry]) => ({
+    id: entry?._id ?? entry?.id ?? (!String(key).startsWith("-=") ? key : null),
+    update: entry
+  }));
+}
+
+function choosePlaylistSoundUpdate(rawSounds) {
+  const candidates = playlistSoundUpdateEntries(rawSounds).filter(({ id, update }) =>
+    id
+    && update
+    && typeof update === "object"
+    && PLAYLIST_SOUND_FIELDS.some((field) => field in update)
+  );
+  return candidates.find(({ update }) => getProperty(update, "playing") === true)
+    ?? candidates.find(({ update }) => getProperty(update, "playing") === false)
+    ?? candidates[0]
+    ?? null;
+}
+
 function playlistEmbeddedSoundAction(base, playlist, flatChanges) {
   const expanded = expand(flatChanges);
-  const rawSounds = expanded.sounds;
-  const updates = Array.isArray(rawSounds)
-    ? rawSounds
-    : rawSounds && typeof rawSounds === "object" ? Object.values(rawSounds) : [];
-  const update = updates.find((entry) => entry && typeof entry === "object"
-    && (entry._id || entry.id)
-    && PLAYLIST_SOUND_FIELDS.some((field) => field in entry));
-  if (!update) return null;
+  const selected = choosePlaylistSoundUpdate(expanded.sounds);
+  if (!selected) return null;
 
-  const sound = playlist.sounds?.get(update._id ?? update.id);
+  const { id, update } = selected;
+  const sound = playlist.sounds?.get(id);
   return playlistSoundUpdateAction({
     ...base,
-    target: sound?.uuid ?? update._id ?? update.id,
-    label: `Playlist Sound: ${sound?.name || update.name || update._id || update.id}`
+    playlistUuid: playlist.uuid,
+    playlistSoundId: id,
+    target: sound?.uuid ?? id,
+    label: `Playlist Sound: ${sound?.name || update.name || id}`
   }, sound, update);
 }
 
@@ -904,6 +931,7 @@ function classifyUpdateAction(doc, before, after, flatChanges) {
 const Recorder = {
   active: false,
   ignore: false,
+  ignoreDepth: 0,
   cue: null,
   sceneId: null,
   append: false,
@@ -1132,78 +1160,120 @@ const Recorder = {
 };
 
 const Playback = {
-  active: false,
-  cueId: null,
-  currentIndex: null,
-  resumeIndex: 0,
-  stopRequested: false,
-  runId: null,
-  loopIndex: 0,
-  loopLimit: 1,
+  sessions: new Map(),
+
+  get active() {
+    return Array.from(this.sessions.values()).some((session) => session.active);
+  },
+
+  get cueId() {
+    return this.activeSessions()[0]?.cueId ?? this.sessions.values().next().value?.cueId ?? null;
+  },
+
+  get currentIndex() {
+    return this.get(this.cueId)?.currentIndex ?? null;
+  },
+
+  get resumeIndex() {
+    return this.get(this.cueId)?.resumeIndex ?? 0;
+  },
+
+  get stopRequested() {
+    return !!this.get(this.cueId)?.stopRequested;
+  },
+
+  get loopIndex() {
+    return this.get(this.cueId)?.loopIndex ?? 0;
+  },
+
+  get loopLimit() {
+    return this.get(this.cueId)?.loopLimit ?? 1;
+  },
+
+  activeSessions() {
+    return Array.from(this.sessions.values()).filter((session) => session.active);
+  },
+
+  get(cueId) {
+    return cueId ? this.sessions.get(cueId) ?? null : null;
+  },
+
+  sessionForRun(runId) {
+    if (!runId) return null;
+    return Array.from(this.sessions.values()).find((session) => session.runId === runId) ?? null;
+  },
 
   start(cueId, startIndex = 0, { loopLimit = 1 } = {}) {
-    this.active = true;
-    this.cueId = cueId;
-    this.currentIndex = null;
-    this.resumeIndex = Math.max(0, Number(startIndex) || 0);
-    this.stopRequested = false;
-    this.runId = randomId("play");
-    this.loopIndex = 0;
-    this.loopLimit = nonNegativeNumber(loopLimit, 1);
+    const existing = this.get(cueId);
+    if (existing?.active) return null;
+    const session = {
+      cueId,
+      active: true,
+      currentIndex: null,
+      resumeIndex: Math.max(0, Number(startIndex) || 0),
+      stopRequested: false,
+      runId: randomId("play"),
+      loopIndex: 0,
+      loopLimit: nonNegativeNumber(loopLimit, 1)
+    };
+    this.sessions.set(cueId, session);
     refreshApp();
-    return this.runId;
+    return session.runId;
   },
 
-  setLoop(loopIndex, loopLimit = this.loopLimit) {
-    this.loopIndex = nonNegativeNumber(loopIndex, 0);
-    this.loopLimit = nonNegativeNumber(loopLimit, this.loopLimit);
+  setLoop(runId, loopIndex, loopLimit = null) {
+    const session = this.sessionForRun(runId);
+    if (!session) return;
+    session.loopIndex = nonNegativeNumber(loopIndex, 0);
+    session.loopLimit = loopLimit == null ? session.loopLimit : nonNegativeNumber(loopLimit, session.loopLimit);
     refreshApp();
   },
 
-  setCurrent(index) {
-    this.currentIndex = index;
+  setCurrent(runId, index) {
+    const session = this.sessionForRun(runId);
+    if (!session) return;
+    session.currentIndex = index;
     refreshApp();
   },
 
-  markCompleted(index) {
-    this.resumeIndex = Math.max(this.resumeIndex, index + 1);
+  markCompleted(runId, index) {
+    const session = this.sessionForRun(runId);
+    if (!session) return;
+    session.resumeIndex = Math.max(session.resumeIndex, index + 1);
     refreshApp();
   },
 
   requestStop(cueId = null) {
-    if (!this.active) return false;
-    if (cueId && this.cueId !== cueId) return false;
-    this.stopRequested = true;
+    const sessions = cueId ? [this.get(cueId)].filter(Boolean) : this.activeSessions();
+    const activeSessions = sessions.filter((session) => session.active);
+    if (!activeSessions.length) return false;
+    for (const session of activeSessions) session.stopRequested = true;
     refreshApp();
     return true;
   },
 
   shouldStop(runId) {
-    return this.active && this.runId === runId && this.stopRequested;
+    const session = this.sessionForRun(runId);
+    return !session || !session.active || session.stopRequested;
   },
 
-  finish({ completed = false } = {}) {
-    const cueId = completed ? null : this.cueId;
-    const resumeIndex = completed ? 0 : this.resumeIndex;
-    this.active = false;
-    this.cueId = cueId;
-    this.currentIndex = null;
-    this.resumeIndex = resumeIndex;
-    this.stopRequested = false;
-    this.runId = null;
-    this.loopIndex = completed ? 0 : this.loopIndex;
+  finish(runId, { completed = false } = {}) {
+    const session = this.sessionForRun(runId);
+    if (!session) return;
+    if (completed) {
+      this.sessions.delete(session.cueId);
+    } else {
+      session.active = false;
+      session.currentIndex = null;
+      session.stopRequested = false;
+      session.runId = null;
+    }
     refreshApp();
   },
 
-  clear() {
-    this.active = false;
-    this.cueId = null;
-    this.currentIndex = null;
-    this.resumeIndex = 0;
-    this.stopRequested = false;
-    this.runId = null;
-    this.loopIndex = 0;
-    this.loopLimit = 1;
+  clear(cueId = null) {
+    if (cueId) this.sessions.delete(cueId);
+    else this.sessions.clear();
     refreshApp();
   }
 };
@@ -1226,8 +1296,8 @@ async function playCue(cueId, { requestedBy = game.user?.id } = {}) {
     return;
   }
 
-  if (Playback.active) {
-    ui.notifications?.warn("Journal Cues: stop the current playback before starting another cue.");
+  if (Playback.get(cueId)?.active) {
+    ui.notifications?.warn("Journal Cues: that cue is already playing.");
     return;
   }
 
@@ -1242,35 +1312,42 @@ async function playCue(cueId, { requestedBy = game.user?.id } = {}) {
     ui.notifications?.warn("Journal Cues: this cue has no actions.");
     return;
   }
-  let startIndex = Playback.cueId === cueId ? nonNegativeNumber(Playback.resumeIndex, 0) : 0;
+  const existingSession = Playback.get(cueId);
+  let startIndex = existingSession ? nonNegativeNumber(existingSession.resumeIndex, 0) : 0;
   if (startIndex >= actions.length) startIndex = 0;
   const loopLimit = cue.loopEnabled ? nonNegativeNumber(cue.loopLimit, 0) : 1;
   const runId = Playback.start(cueId, startIndex, { loopLimit });
+  if (!runId) return;
 
-  Recorder.ignore = true;
+  const releaseSuppression = beginRecordingSuppression();
   let completed = false;
   try {
     let loopsCompleted = 0;
     let nextStartIndex = startIndex;
     while (!Playback.shouldStop(runId) && (loopLimit === 0 || loopsCompleted < loopLimit)) {
-      Playback.setLoop(loopsCompleted + 1, loopLimit);
+      Playback.setLoop(runId, loopsCompleted + 1, loopLimit);
       if (nextStartIndex === 0 && (cue.originMode ?? "recorded") === "recorded") {
         await applySnapshot(await recordedStartSnapshot(cue), { teleport: true });
       }
 
-      for (let index = nextStartIndex; index < actions.length; index += 1) {
+      for (let index = nextStartIndex; index < actions.length;) {
         if (Playback.shouldStop(runId)) break;
-        Playback.setCurrent(index);
-        const actionCompleted = await runAction(actions[index], cue, { runId });
-        if (!actionCompleted) break;
-        Playback.markCompleted(index);
+        const group = concurrentActionGroup(actions, index);
+        Playback.setCurrent(runId, index);
+        const results = await Promise.all(group.map((entry) => runAction(entry.action, cue, { runId })));
+        for (const [groupIndex, actionCompleted] of results.entries()) {
+          if (actionCompleted) Playback.markCompleted(runId, group[groupIndex].index);
+        }
+        if (results.some((result) => !result)) break;
         if (Playback.shouldStop(runId)) break;
+        index += group.length;
       }
 
-      if (Playback.shouldStop(runId) || Playback.resumeIndex < actions.length) break;
+      const session = Playback.sessionForRun(runId);
+      if (Playback.shouldStop(runId) || !session || session.resumeIndex < actions.length) break;
       loopsCompleted += 1;
       if (loopLimit === 0 || loopsCompleted < loopLimit) {
-        Playback.resumeIndex = 0;
+        session.resumeIndex = 0;
         nextStartIndex = 0;
       }
     }
@@ -1279,8 +1356,8 @@ async function playCue(cueId, { requestedBy = game.user?.id } = {}) {
     console.error(`[${MODULE_ID}] cue playback failed`, cue, error);
     ui.notifications?.error(`Journal Cues: playback failed. See console for details.`);
   } finally {
-    Recorder.ignore = false;
-    Playback.finish({ completed });
+    releaseSuppression();
+    Playback.finish(runId, { completed });
   }
 }
 
@@ -1300,7 +1377,37 @@ async function restoreRecordedStart(cueId) {
   const cue = await getCue(cueId);
   if (!cue) return;
   await applySnapshot(await recordedStartSnapshot(cue), { teleport: true });
-  if (Playback.cueId === cueId && !Playback.active) Playback.clear();
+  const playback = Playback.get(cueId);
+  if (playback && !playback.active) Playback.clear(cueId);
+}
+
+function canRunActionConcurrently(action) {
+  if (action?.type !== "moveToken" || action.parallel === false) return false;
+  if (Number(action.waitBefore ?? 0) > 0) return false;
+  if (Number(action.waitAfter ?? 0) > 0) return false;
+  return true;
+}
+
+function concurrentMoveTargetKey(action) {
+  const target = action.token ?? action.target ?? action.id;
+  return Array.isArray(target) ? target.join("|") : String(target);
+}
+
+function concurrentActionGroup(actions, startIndex) {
+  const first = actions[startIndex];
+  if (!canRunActionConcurrently(first)) return [{ action: first, index: startIndex }];
+
+  const group = [];
+  const targetKeys = new Set();
+  for (let index = startIndex; index < actions.length; index += 1) {
+    const action = actions[index];
+    if (!canRunActionConcurrently(action)) break;
+    const key = concurrentMoveTargetKey(action);
+    if (targetKeys.has(key)) break;
+    targetKeys.add(key);
+    group.push({ action, index });
+  }
+  return group.length ? group : [{ action: first, index: startIndex }];
 }
 
 async function runAction(action, cue, context = {}) {
@@ -1411,8 +1518,27 @@ async function runAudioAction(action) {
   }
 }
 
+async function resolvePlaylistActionDocument(action) {
+  const playlist = action.playlistUuid
+    ? await resolveDocument(action.playlistUuid, "Playlist")
+    : null;
+  if (playlist && action.playlistSoundId) {
+    const sound = playlist.sounds?.get(action.playlistSoundId);
+    if (sound) return sound;
+  }
+  if (action.playlistSoundUuid) {
+    const sound = await resolveDocument(action.playlistSoundUuid, "PlaylistSound");
+    if (sound) return sound;
+  }
+  if (action.playlistSoundId) {
+    const sound = await resolveDocument({ documentName: "PlaylistSound", id: action.playlistSoundId });
+    if (sound) return sound;
+  }
+  return playlist ?? (await resolveDocument(action.playlistUuid ?? action.uuid ?? action.target));
+}
+
 async function runPlaylistAction(action) {
-  const doc = await resolveDocument(action.playlistSoundUuid ?? action.playlistUuid ?? action.uuid);
+  const doc = await resolvePlaylistActionDocument(action);
   if (!doc) return;
   const command = action.command ?? "play";
   if (doc.documentName === "Playlist") {
@@ -1752,10 +1878,8 @@ async function runMoveToken(action, cue) {
     ui.notifications?.warn(`Journal Cues: token was not found for "${action.label || action.token || action.target}".`);
     return false;
   }
-  for (const token of tokens) {
-    if (!(await moveOneToken(token, action, cue))) return false;
-  }
-  return true;
+  const results = await Promise.all(tokens.map((token) => moveOneToken(token, action, cue)));
+  return results.every(Boolean);
 }
 
 async function resolveDestination(destination) {
@@ -2172,14 +2296,24 @@ function segmentsIntersect(a, b, c, d) {
   return !!segmentIntersectionPoint(a, b, c, d);
 }
 
-function runWithRecordingSuppressed(callback) {
-  const wasIgnoring = Recorder.ignore;
+function beginRecordingSuppression({ suppressChat = false } = {}) {
+  Recorder.ignoreDepth = (Recorder.ignoreDepth ?? 0) + 1;
   Recorder.ignore = true;
-  Recorder.chatSuppression += 1;
-  const release = () => {
-    Recorder.chatSuppression = Math.max(0, Recorder.chatSuppression - 1);
-    Recorder.ignore = wasIgnoring;
+  if (suppressChat) Recorder.chatSuppression += 1;
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    if (suppressChat) {
+      Recorder.chatSuppression = Math.max(0, Recorder.chatSuppression - 1);
+    }
+    Recorder.ignoreDepth = Math.max(0, (Recorder.ignoreDepth ?? 0) - 1);
+    Recorder.ignore = Recorder.ignoreDepth > 0;
   };
+}
+
+function runWithRecordingSuppressed(callback) {
+  const release = beginRecordingSuppression({ suppressChat: true });
   try {
     const result = callback();
     if (result && typeof result.then === "function") return result.finally(release);
@@ -2661,13 +2795,14 @@ class JournalCuesApp extends Application {
       ? Recorder.actions
       : selected?.actions ?? [];
     const selectedDefaultDelay = cueDefaultDelayMs(selected);
-    const selectedPlayback = Playback.cueId === selected?.id ? Playback : null;
+    const selectedPlayback = Playback.get(selected?.id);
     return {
       cues: cues.map((cue) => {
         const recording = Recorder.active && Recorder.cue?.id === cue.id;
         const actionCount = recording ? Recorder.actions.length : cue.actions?.length ?? 0;
-        const playing = Playback.active && Playback.cueId === cue.id;
-        const paused = !Playback.active && Playback.cueId === cue.id && Playback.resumeIndex > 0;
+        const playback = Playback.get(cue.id);
+        const playing = !!playback?.active;
+        const paused = !!playback && !playback.active && playback.resumeIndex > 0;
         return {
           ...cue,
           selected: cue.id === this.selectedId,
@@ -2677,16 +2812,16 @@ class JournalCuesApp extends Application {
           playing,
           paused,
           playbackLabel: playing
-            ? `${labels.status.playing.toLocaleLowerCase()} ${Math.min(actionCount, (Playback.currentIndex ?? 0) + 1)}/${actionCount}${Playback.loopLimit !== 1 ? ` - ${labels.status.loop} ${Playback.loopIndex}${Playback.loopLimit ? `/${Playback.loopLimit}` : ""}` : ""}`
-            : paused ? `${labels.status.pausedAt} ${Math.min(actionCount, Playback.resumeIndex + 1)}/${actionCount}` : "",
+            ? `${labels.status.playing.toLocaleLowerCase()} ${Math.min(actionCount, (playback.currentIndex ?? 0) + 1)}/${actionCount}${playback.loopLimit !== 1 ? ` - ${labels.status.loop} ${playback.loopIndex}${playback.loopLimit ? `/${playback.loopLimit}` : ""}` : ""}`
+            : paused ? `${labels.status.pausedAt} ${Math.min(actionCount, playback.resumeIndex + 1)}/${actionCount}` : "",
           actionCount,
           oneAction: actionCount === 1
         };
       }),
       selected: selected ? {
         ...selected,
-        playing: Playback.active && Playback.cueId === selected.id,
-        paused: !Playback.active && Playback.cueId === selected.id && Playback.resumeIndex > 0,
+        playing: !!selectedPlayback?.active,
+        paused: !!selectedPlayback && !selectedPlayback.active && selectedPlayback.resumeIndex > 0,
         defaultDelayMs: selectedDefaultDelay,
         originRecorded: (selected.originMode ?? "recorded") === "recorded",
         originCurrent: selected.originMode === "current",
@@ -2735,7 +2870,8 @@ class JournalCuesApp extends Application {
         resumeIndex: Playback.resumeIndex,
         stopRequested: Playback.stopRequested,
         loopIndex: Playback.loopIndex,
-        loopLimit: Playback.loopLimit
+        loopLimit: Playback.loopLimit,
+        activeCount: Playback.activeSessions().length
       }
     };
   }
@@ -2987,9 +3123,10 @@ class JournalCuesApp extends Application {
           Recorder.clear({ refresh: false });
           ui.notifications?.info(`Journal Cues: canceled recording "${name}" because the cue was deleted.`);
         }
-        if (Playback.cueId === cueId) {
-          if (Playback.active) Playback.requestStop(cueId);
-          else Playback.clear();
+        const playback = Playback.get(cueId);
+        if (playback) {
+          if (playback.active) Playback.requestStop(cueId);
+          else Playback.clear(cueId);
         }
         await deleteCue(cueId);
         this.selectedId = null;
