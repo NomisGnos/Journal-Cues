@@ -12,19 +12,19 @@ It is built for practical table moments: moving tokens, opening doors, changing 
 
 ## Installation
 
-Use this manifest URL in Foundry's `Install Module` screen:
+Install this module from Foundry's **Add-on Modules** screen using the manifest URL:
 
 ```text
-https://raw.githubusercontent.com/NomisGnos/Journal-Cues/main/module.json
+https://github.com/NomisGnos/Journal-Cues/releases/latest/download/module.json
 ```
 
 Or install it manually:
 
-1. Download or clone the module.
-2. Put the folder in your Foundry `Data/modules` folder.
-3. Make sure the folder is named `journal-cues`.
+1. Download the release zip.
+2. Extract the module folder into your Foundry `Data/modules` folder.
+3. Make sure the folder name matches the module id.
 4. Restart Foundry if it was already running.
-5. Enable `Journal Cues` in your world.
+5. Enable the module inside your world from **Manage Modules**.
 
 ## Opening The Cue Window
 
