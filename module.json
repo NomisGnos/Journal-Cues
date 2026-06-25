@@ -2,9 +2,9 @@
   "id": "journal-cues",
   "title": "Journal Cues",
   "description": "Clickable journal cues for recording, replaying, and resetting scene actions.",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "compatibility": {
-    "minimum": "14",
+    "minimum": "13",
     "verified": "14"
   },
   "authors": [
